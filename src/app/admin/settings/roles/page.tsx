@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Shield, Users, UserCheck, Settings, Plus, Edit, Trash2, ArrowLeft, Save } from "lucide-react";
+import { Shield, Users, Settings, Plus, Edit, Trash2, ArrowLeft, Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Role {

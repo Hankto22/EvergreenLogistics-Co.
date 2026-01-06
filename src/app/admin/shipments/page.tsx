@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Package, Search, Eye, Edit, Truck, MapPin, DollarSign, Plus, Trash2, RefreshCw, X } from "lucide-react";
+import { Package, Search, Eye, Edit, Truck, MapPin, Plus, Trash2, RefreshCw, X } from "lucide-react";
 import {
   useGetShipmentsQuery,
   useUpdateShipmentMutation,

@@ -92,7 +92,7 @@ const AdminMedia = () => {
   };
 
   const handleDelete = (fileId: string) => {
-    setFeedback("Delete is not supported for uploads yet.");
+    setFeedback(`Delete is not supported for uploads yet (id: ${fileId}).`);
   };
 
   const handleView = (file: any) => {

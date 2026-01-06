@@ -14,7 +14,7 @@ import {
 const AdminUsers = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: users = [], isLoading, isFetching, refetch } = useGetUsersQuery();
+  const { data: users = [], isLoading, isFetching } = useGetUsersQuery();
   const [updateUser, { isLoading: savingUser }] = useUpdateUserMutation();
   const [deleteUser, { isLoading: deletingUser }] = useDeleteUserMutation();
   const [editingUser, setEditingUser] = useState<UserResponse | null>(null);

@@ -97,7 +97,7 @@ export default function AdminDashboard() {
     status: shipment.Status
   })) : [];
   // default to overview and drop the inline tab links row
-  const tab: TabKey = "overview";
+  const [tab] = useState<TabKey>("overview");
   const [isEditing, setIsEditing] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);

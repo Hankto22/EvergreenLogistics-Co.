@@ -3,17 +3,10 @@
 import GalleryGrid from "../../components/gallery/GalleryGrid";
 import images from "../../lib/images";
 import achievements1 from "../../assets/achievements 1.jpeg";
-import achievements2 from "../../assets/achievements 2.jpeg";
-import achievements from "../../assets/achievements.jpeg";
-import project1 from "../../assets/project 1.jpeg";
-import project2 from "../../assets/project 2.jpeg";
 import project3 from "../../assets/project 3.jpeg";
 import project4 from "../../assets/project 4.jpeg";
-import project5 from "../../assets/project 5.jpeg";
 import project6 from "../../assets/project 6.jpeg";
-import project7 from "../../assets/project 7.jpeg";
 import project from "../../assets/project.jpeg";
-import team from "../../assets/team.jpeg";
 
 const assetImages = [
   achievements1,
