@@ -4,7 +4,10 @@ export interface GalleryItem {
   category: string;
   thumbnailUrl: string;
   mediaType: string;
-  description: string;
+  description: string | null;
+  mediaUrl: string;
+  createdByUserId: string;
+  createdAt: string;
 }
 
 export interface Shipment {

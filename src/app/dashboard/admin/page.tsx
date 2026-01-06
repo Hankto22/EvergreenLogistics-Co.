@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -19,34 +19,20 @@ import {
   User,
   Edit,
   Save,
-  X,
   Shield,
   Camera,
   Bell,
-  Search,
-  ChevronDown,
   Mail,
   Phone,
-  MapPin
+  Search,
+  ChevronDown,
+  X
 } from "lucide-react";
 import type { RootState } from "@/store";
 import { uploadToCloudinary } from "@/api/cloudinary";
+import { useGetAdminDashboardQuery, useGetShipmentsQuery, useGetNotificationsQuery, useMarkNotificationAsReadMutation } from "../../../store/shipmentApi";
 
-type TabKey = "profile" | "overview" | "shipments" | "users" | "media";
-
-const statCards = [
-  { label: "Total Shipments", value: "2,456", change: "+12%", icon: <Package />, tone: "indigo" },
-  { label: "Active Users", value: "543", change: "+8%", icon: <Users />, tone: "mint" },
-  { label: "Revenue", value: "$125K", change: "+23%", icon: <DollarSign />, tone: "purple" },
-  { label: "Growth", value: "18%", change: "+5%", icon: <TrendingUp />, tone: "peach" }
-];
-
-const shipments = [
-  { id: "SH-001", customer: "ABC Trading Ltd", origin: "Guangzhou", destination: "Nairobi", type: "Ocean", status: "In Transit" },
-  { id: "SH-002", customer: "XYZ Imports", origin: "Shanghai", destination: "Mombasa", type: "Air", status: "Delivered" },
-  { id: "SH-003", customer: "Global Logistics", origin: "Beijing", destination: "Nairobi", type: "Ocean", status: "Processing" },
-  { id: "SH-004", customer: "Kenya Traders", origin: "Guangzhou", destination: "Kisumu", type: "Road", status: "In Transit" }
-];
+type TabKey = "profile" | "overview" | "shipments" | "users" | "media" | "payments";
 
 const users = [
   { name: "John Doe", email: "john@example.com", role: "Client", shipments: 12, status: "Active" },
@@ -67,28 +53,61 @@ const actions = [
   { label: "Settings", icon: <Settings />, tone: "slate" }
 ];
 
-const navLinks = ["About Us", "Solutions", "Cargo Tracking", "Corporate Sustainability", "Contact"];
-
-const adminNotifications = [
-  { title: "Shipment #12345 has arrived in Nairobi", time: "2 hours ago" },
-  { title: "New order from Mombasa warehouse", time: "5 hours ago" },
-  { title: "Customs clearance completed", time: "1 day ago" }
-];
-
 export default function AdminDashboard() {
   const user = useSelector((state: RootState) => state.auth.user);
   const navigate = useNavigate();
-  const [tab, setTab] = useState<TabKey>("profile");
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+    }
+  }, [user, navigate]);
+
+  if (!user) {
+    return null;
+  }
+
+  // RTK Query hooks
+  const { data: adminStats } = useGetAdminDashboardQuery();
+  const { data: shipmentsData } = useGetShipmentsQuery({});
+  const { data: notificationsData } = useGetNotificationsQuery();
+  const [markNotificationAsRead] = useMarkNotificationAsReadMutation();
+
+  const adminNotifications = notificationsData || [];
+
+  const statCards = adminStats ? [
+    { label: "Total Shipments", value: adminStats.totalShipments.toString(), change: "+12%", icon: <Package />, tone: "indigo" },
+    { label: "Active Shipments", value: adminStats.activeShipments.toString(), change: "+8%", icon: <Users />, tone: "mint" },
+    { label: "Total Clients", value: adminStats.totalClients.toString(), change: "+23%", icon: <DollarSign />, tone: "purple" },
+    { label: "Revenue", value: `$${adminStats.totalRevenue.toFixed(2)}`, change: "+5%", icon: <TrendingUp />, tone: "peach" }
+  ] : [
+    { label: "Total Shipments", value: "0", change: "+12%", icon: <Package />, tone: "indigo" },
+    { label: "Active Shipments", value: "0", change: "+8%", icon: <Users />, tone: "mint" },
+    { label: "Total Clients", value: "0", change: "+23%", icon: <DollarSign />, tone: "purple" },
+    { label: "Revenue", value: "$0.00", change: "+5%", icon: <TrendingUp />, tone: "peach" }
+  ];
+
+  // Transform shipments data
+  const shipments = shipmentsData ? shipmentsData.slice(0, 4).map(shipment => ({
+    id: shipment.EVGCode,
+    customer: shipment.client?.fullName || "Unknown Client",
+    origin: shipment.OriginCity || "Unknown",
+    destination: shipment.DestinationCity || "Unknown",
+    type: shipment.TransportMode || "Unknown",
+    status: shipment.Status
+  })) : [];
+  // default to overview and drop the inline tab links row
+  const tab: TabKey = "overview";
   const [isEditing, setIsEditing] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [activeNotification, setActiveNotification] = useState<typeof adminNotifications[number] | null>(null);
   const [profile, setProfile] = useState({
-    name: "John Admin",
-    email: user?.email || "admin@evergreen.com",
-    phone: "+254 700 000 000",
-    company: "Evergreen Logistics Co Ltd",
+    name: user?.fullName || "John Admin",
+    email: user?.email || "admin@evergreenlogistics.co.ke",
+    phone: user?.phone || "+254 700 000 000",
+    company: user?.company || "Evergreen Logistics Co. Ltd",
     avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"
   });
   const [security, setSecurity] = useState({
@@ -116,6 +135,17 @@ export default function AdminDashboard() {
     setUploading(false);
   };
 
+  const handleNotificationClick = async (notification: typeof adminNotifications[number]) => {
+    setActiveNotification(notification);
+    if (!notification.isRead) {
+      try {
+        await markNotificationAsRead(notification.id).unwrap();
+      } catch (error) {
+        console.error("Failed to mark notification as read", error);
+      }
+    }
+  };
+
   return (
     <div className="admin-page">
       <div className="admin-shell">
@@ -124,17 +154,10 @@ export default function AdminDashboard() {
             <div className="brand-mark">E</div>
             <div>
               <div className="brand-title">Evergreen Logistics</div>
-              <div className="brand-sub">Co. Ltd</div>
+              <div className="brand-sub">Super Admin Control</div>
             </div>
           </div>
-          <nav className="topbar-nav">
-            {navLinks.map(link => (
-              <button key={link} className="top-link" onClick={() => navigate(`/${link.toLowerCase().replace(/ /g, "")}`)}>
-                {link}
-              </button>
-            ))}
-          </nav>
-          <div className="topbar-actions">
+          <div className="topbar-actions compact">
             <button className="icon-chip" aria-label="Search">
               <Search size={18} />
             </button>
@@ -145,36 +168,53 @@ export default function AdminDashboard() {
                 onClick={() => setShowNotifications(prev => !prev)}
               >
                 <Bell size={18} />
-                <span className="dot" />
+                {adminNotifications.length > 0 && <span className="dot" />}
               </button>
               {showNotifications && (
                 <div className="note-dropdown">
                   <div className="note-head">Notifications</div>
                   {activeNotification ? (
                     <div className="note-detail">
-                      <button className="note-back" onClick={() => setActiveNotification(null)}>← Back to all</button>
-                      <div className="note-title">{activeNotification.title}</div>
-                      <div className="note-time">{activeNotification.time}</div>
+                      <button className="note-back" onClick={() => setActiveNotification(null)}>Back to all</button>
+                      <div className="note-title">{activeNotification.message || "Notification"}</div>
+                      <div className="note-time">{new Date(activeNotification.createdAt).toLocaleString()}</div>
                       <p className="note-body">Open notifications to view the full context.</p>
                       <div className="note-actions">
-                        <button className="ghost-btn sm" onClick={() => { setActiveNotification(null); setShowNotifications(false); }}>Close</button>
-                        <a className="primary-btn sm" href="/notifications">Open feed</a>
+                        <button
+                          className="ghost-btn sm"
+                          onClick={() => { setActiveNotification(null); setShowNotifications(false); }}
+                        >
+                          Close
+                        </button>
+                        <button
+                          className="primary-btn sm"
+                          onClick={() => { navigate('/notifications'); setShowNotifications(false); }}
+                        >
+                          Open feed
+                        </button>
                       </div>
                     </div>
                   ) : (
                     <div className="note-list">
                       {adminNotifications.map(note => (
-                        <button key={note.title} className="note-item clickable" onClick={() => setActiveNotification(note)}>
-                          <div className="note-title">{note.title}</div>
-                          <div className="note-time">{note.time}</div>
+                        <button
+                          key={note.id}
+                          className="note-item clickable"
+                          onClick={() => handleNotificationClick(note)}
+                        >
+                          <div className="note-title">{note.message || "Notification"}</div>
+                          <div className="note-time">{new Date(note.createdAt).toLocaleString()}</div>
                         </button>
                       ))}
+                      {adminNotifications.length === 0 && (
+                        <div className="note-item">No notifications</div>
+                      )}
                     </div>
                   )}
                 </div>
               )}
             </div>
-            <button className="profile-trigger" onClick={() => setShowProfile(true)}>
+            <button className="profile-trigger" onClick={() => setShowProfileMenu(true)}>
               <div className="avatar-chip admin">A</div>
               <div className="role-meta">
                 <span className="role-label admin">Super Admin</span>
@@ -184,14 +224,14 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {showProfile && <div className="drawer-backdrop" onClick={() => setShowProfile(false)} />}
-        <div className={`profile-drawer ${showProfile ? "open" : ""}`}>
+        {showProfileMenu && <div className="drawer-backdrop" onClick={() => setShowProfileMenu(false)} />}
+        <div className={`profile-drawer ${showProfileMenu ? "open" : ""}`}>
           <div className="drawer-head">
             <div>
-              <div className="drawer-title">My Profile</div>
-              <p className="drawer-sub">Platform overview and contact</p>
+              <div className="drawer-title">Admin Profile</div>
+              <p className="drawer-sub">Profile snapshot & quick actions</p>
             </div>
-            <button className="icon-chip ghost" aria-label="Close profile" onClick={() => setShowProfile(false)}>
+            <button className="icon-chip ghost" aria-label="Close profile" onClick={() => setShowProfileMenu(false)}>
               <X size={16} />
             </button>
           </div>
@@ -203,10 +243,10 @@ export default function AdminDashboard() {
             />
             <div className="drawer-name">{profile.name}</div>
             <div className="role-pill admin">SUPER ADMIN</div>
-            <p className="drawer-meta">Joined January 2024</p>
+            <p className="drawer-meta">{profile.company}</p>
           </div>
           <div className="drawer-section">
-            <h4>Personal Information</h4>
+            <h4>Contact</h4>
             <div className="drawer-row">
               <Mail size={16} />
               <div>
@@ -222,32 +262,34 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="drawer-row">
-              <MapPin size={16} />
-              <div>
-                <div className="drawer-label">Location</div>
-                <div className="drawer-value">Nairobi, Kenya</div>
-              </div>
-            </div>
-          </div>
-          <div className="drawer-section">
-            <h4>Company</h4>
-            <div className="drawer-row">
               <User size={16} />
               <div>
                 <div className="drawer-label">Company</div>
                 <div className="drawer-value">{profile.company}</div>
               </div>
             </div>
-            <div className="drawer-row">
-              <Shield size={16} />
-              <div>
-                <div className="drawer-label">Role</div>
-                <div className="drawer-value">Super Admin</div>
-              </div>
+          </div>
+          <div className="drawer-section">
+            <h4>Quick Links</h4>
+            <div className="drawer-actions">
+              <button
+                className="primary-btn sm"
+                onClick={() => { navigate('/admin/settings'); setShowProfileMenu(false); }}
+              >
+                <Settings size={16} />
+                Settings
+              </button>
+              <button
+                className="ghost-btn sm"
+                onClick={() => { navigate('/admin/users'); setShowProfileMenu(false); }}
+              >
+                <Users size={16} />
+                Manage Users
+              </button>
             </div>
           </div>
           <div className="drawer-section">
-            <h4>Quick Settings</h4>
+            <h4>Preferences</h4>
             <label className="toggle-row">
               <span>Email Notifications</span>
               <input
@@ -256,7 +298,6 @@ export default function AdminDashboard() {
                 onChange={(e) => setEmailNotifications(e.target.checked)}
               />
             </label>
-            <p className="drawer-hint">Security, reports, and team performance are available across your tabs.</p>
           </div>
         </div>
 
@@ -286,24 +327,6 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        <div className="admin-tabs">
-          <button className={tab === "profile" ? "active" : ""} onClick={() => setTab("profile")}>
-            <User size={16} /> Profile
-          </button>
-          <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
-            Overview
-          </button>
-          <button className={tab === "shipments" ? "active" : ""} onClick={() => setTab("shipments")}>
-            Shipments
-          </button>
-          <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>
-            Users
-          </button>
-          <button className={tab === "media" ? "active" : ""} onClick={() => setTab("media")}>
-            Media Upload
-          </button>
-        </div>
-
         {tab === "profile" && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -324,7 +347,27 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setIsEditing(false)}
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('http://localhost:3001/api/users/' + user.id, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              fullName: profile.name,
+                              email: profile.email,
+                              phone: profile.phone,
+                              company: profile.company
+                            })
+                          });
+                          if (response.ok) {
+                            setIsEditing(false);
+                          } else {
+                            alert('Failed to update profile');
+                          }
+                        } catch (error) {
+                          alert('Error updating profile');
+                        }
+                      }}
                       className="flex items-center gap-2 px-3 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100"
                     >
                       <Save size={16} /> Save
@@ -512,7 +555,13 @@ export default function AdminDashboard() {
 
             <div className="actions-row">
               {actions.map(action => (
-                <button key={action.label} className={`action-btn ${action.tone}`}>
+                <button key={action.label} className={`action-btn ${action.tone}`} onClick={() => {
+                  if (action.label === "New Shipment") navigate('/admin/shipments/new');
+                  else if (action.label === "Add User") navigate('/admin/users/new');
+                  else if (action.label === "Generate Report") navigate('/admin/reports/generate');
+                  else if (action.label === "Settings") navigate('/admin/settings');
+                  else return;
+                }}>
                   <span className="action-icon">{action.icon}</span>
                   <span>{action.label}</span>
                 </button>
@@ -525,7 +574,7 @@ export default function AdminDashboard() {
           <div className="panel">
             <div className="panel-head">
               <h3>Recent Shipments</h3>
-              <button className="primary-chip">New Shipment</button>
+              <button className="primary-chip" onClick={() => navigate('/admin/shipments/new')}>New Shipment</button>
             </div>
             <div className="table">
               <div className="table-head">
@@ -535,6 +584,7 @@ export default function AdminDashboard() {
                 <span>Destination</span>
                 <span>Type</span>
                 <span>Status</span>
+                <span>Actions</span>
               </div>
               {shipments.map(ship => (
                 <div key={ship.id} className="table-row">
@@ -546,6 +596,14 @@ export default function AdminDashboard() {
                   <span>
                     <span className={`pill ${ship.status.replace(" ", "-").toLowerCase()}`}>{ship.status}</span>
                   </span>
+                  <span>
+                    <button
+                      className="link"
+                      onClick={() => navigate(`/admin/shipments/${ship.id}`)}
+                    >
+                      View Details
+                    </button>
+                  </span>
                 </div>
               ))}
             </div>
@@ -556,7 +614,7 @@ export default function AdminDashboard() {
           <div className="panel">
             <div className="panel-head">
               <h3>User Management</h3>
-              <button className="primary-chip">Add User</button>
+              <button className="primary-chip" onClick={() => navigate('/admin/users/new')}>Add User</button>
             </div>
             <div className="table">
               <div className="table-head">
@@ -574,53 +632,125 @@ export default function AdminDashboard() {
                   <span>{user.role}</span>
                   <span>{user.shipments}</span>
                   <span><span className="pill success">{user.status}</span></span>
-                  <span className="link" onClick={() => alert(`Edit user ${user.name}`)}>Edit</span>
+                  <span className="link" onClick={() => navigate('/admin/users')}>Edit</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {tab === "media" && (
+        {tab === "payments" && (
           <div className="panel">
             <div className="panel-head">
-              <h3>Media Upload</h3>
+              <h3>Payment Management</h3>
+              <p>Monitor and manage all payment transactions</p>
             </div>
 
-            <div className="upload-dropzone" onClick={() => fileInputRef.current?.click()}>
-              <UploadCloud size={56} />
-              <h4>Upload Files</h4>
-              <p>Drag and drop files here, or click to browse</p>
-              <span className="muted">Supports: Images, Videos, Documents</span>
-              {uploading && <p>Uploading...</p>}
-            </div>
-            <input
-              type="file"
-              multiple
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-            />
-            {uploadedFiles.length > 0 && (
-              <div className="uploaded-files">
-                <h4>Uploaded Files:</h4>
-                <ul>
-                  {uploadedFiles.map((url, index) => (
-                    <li key={index}><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></li>
-                  ))}
-                </ul>
+            <div className="payment-stats">
+              <div className="stat-card green">
+                <div className="stat-icon"><DollarSign /></div>
+                <div className="stat-meta">
+                  <span className="stat-label">Total Revenue</span>
+                  <span className="stat-change">+15%</span>
+                </div>
+                <div className="stat-value">$45,230</div>
               </div>
-            )}
+              <div className="stat-card blue">
+                <div className="stat-icon"><Package /></div>
+                <div className="stat-meta">
+                  <span className="stat-label">Paid Invoices</span>
+                  <span className="stat-change">+8%</span>
+                </div>
+                <div className="stat-value">156</div>
+              </div>
+              <div className="stat-card yellow">
+                <div className="stat-icon"><TrendingUp /></div>
+                <div className="stat-meta">
+                  <span className="stat-label">Pending Payments</span>
+                  <span className="stat-change">-3%</span>
+                </div>
+                <div className="stat-value">23</div>
+              </div>
+            </div>
 
-            <div className="info-box">
-              <strong>Note:</strong> Cloudinary integration is ready for production. To enable uploads, add your Cloudinary credentials in the CloudinaryUpload component:
-              <ul>
-                <li>Cloud Name</li>
-                <li>Upload Preset (unsigned)</li>
-              </ul>
+            <div className="table">
+              <div className="table-head">
+                <span>Reference</span>
+                <span>Client</span>
+                <span>Amount</span>
+                <span>Status</span>
+                <span>Date</span>
+                <span>Actions</span>
+              </div>
+              {/* Mock payment data - replace with real data */}
+              <div className="table-row">
+                <span>PAY-1234567890</span>
+                <span>John Doe</span>
+                <span>$1,250.00</span>
+                <span><span className="pill success">Completed</span></span>
+                <span>2024-01-15</span>
+                <span><button className="link">View Details</button></span>
+              </div>
+              <div className="table-row">
+                <span>PAY-0987654321</span>
+                <span>Jane Smith</span>
+                <span>$850.00</span>
+                <span><span className="pill pending">Pending</span></span>
+                <span>2024-01-14</span>
+                <span><button className="link">View Details</button></span>
+              </div>
+              <div className="table-row">
+                <span>PAY-1122334455</span>
+                <span>Bob Johnson</span>
+                <span>$2,100.00</span>
+                <span><span className="pill success">Completed</span></span>
+                <span>2024-01-13</span>
+                <span><button className="link">View Details</button></span>
+              </div>
             </div>
           </div>
         )}
+
+        {tab === "media" && (
+           <div className="panel">
+             <div className="panel-head">
+               <h3>Media Upload</h3>
+             </div>
+
+             <div className="upload-dropzone" onClick={() => fileInputRef.current?.click()}>
+               <UploadCloud size={56} />
+               <h4>Upload Files</h4>
+               <p>Drag and drop files here, or click to browse</p>
+               <span className="muted">Supports: Images, Videos, Documents</span>
+               {uploading && <p>Uploading...</p>}
+             </div>
+             <input
+               type="file"
+               multiple
+               ref={fileInputRef}
+               onChange={handleFileChange}
+               style={{ display: 'none' }}
+             />
+             {uploadedFiles.length > 0 && (
+               <div className="uploaded-files">
+                 <h4>Uploaded Files:</h4>
+                 <ul>
+                   {uploadedFiles.map((url, index) => (
+                     <li key={index}><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></li>
+                   ))}
+                 </ul>
+               </div>
+             )}
+
+             <div className="info-box">
+               <strong>Note:</strong> Cloudinary integration is ready for production. To enable uploads, add your Cloudinary credentials in the CloudinaryUpload component:
+               <ul>
+                 <li>Cloud Name</li>
+                 <li>Upload Preset (unsigned)</li>
+               </ul>
+             </div>
+           </div>
+         )}
       </div>
     </div>
   );

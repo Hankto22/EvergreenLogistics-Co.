@@ -1,47 +1,35 @@
 "use client";
 
-import { Bell, Package, AlertCircle, CheckCircle2, UserPlus } from "lucide-react";
-
-type Notification = {
-  title: string;
-  body: string;
-  time: string;
-  type: "staff" | "admin" | "user";
-  icon: React.JSX.Element;
-};
-
-const notifications: Notification[] = [
-  {
-    title: "Shipment status updated",
-    body: "Staff marked SH-003 as In Transit. Admin view refreshed.",
-    time: "5m ago",
-    type: "staff",
-    icon: <Package size={18} />
-  },
-  {
-    title: "Document uploaded",
-    body: "Staff uploaded Proof of Delivery for SH-001.",
-    time: "25m ago",
-    type: "staff",
-    icon: <CheckCircle2 size={18} />
-  },
-  {
-    title: "New client request",
-    body: "Client requested pickup scheduling for SH-105. Admin notified.",
-    time: "1h ago",
-    type: "user",
-    icon: <AlertCircle size={18} />
-  },
-  {
-    title: "User added",
-    body: "Admin created a new Staff account: jane@evergreen.com.",
-    time: "3h ago",
-    type: "admin",
-    icon: <UserPlus size={18} />
-  }
-];
+import { Bell, Package } from "lucide-react";
+import { useGetNotificationsQuery, useMarkNotificationAsReadMutation } from "../../store/shipmentApi";
 
 export default function NotificationsPage() {
+  const { data: notificationsData, isLoading, refetch } = useGetNotificationsQuery();
+  const [markAsRead] = useMarkNotificationAsReadMutation();
+
+  const notifications = notificationsData ? notificationsData.map(notification => ({
+    id: notification.id,
+    title: "Notification",
+    body: notification.message || "Notification details",
+    time: new Date(notification.createdAt).toLocaleString(),
+    type: "user" as const, // TODO: map from notification.type
+    icon: <Package size={18} />,
+    isRead: notification.isRead
+  })) : [];
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await markAsRead(id).unwrap();
+      refetch();
+    } catch (error) {
+      console.error("Failed to mark as read:", error);
+    }
+  };
+
+  if (isLoading) {
+    return <div>Loading notifications...</div>;
+  }
+
   return (
     <div className="notifications-page">
       <div className="notifications-shell">
@@ -57,14 +45,24 @@ export default function NotificationsPage() {
 
         <div className="notifications-feed">
           {notifications.map(note => (
-            <div key={note.title} className={`notification-row ${note.type}`}>
+            <div key={note.id} className={`notification-row ${note.type}`}>
               <div className="note-icon">{note.icon}</div>
               <div className="note-copy">
                 <div className="note-title">{note.title}</div>
                 <div className="note-body">{note.body}</div>
                 <div className="note-meta">{note.time}</div>
               </div>
-              <span className={`pill ${note.type}`}>{note.type === "user" ? "Client" : note.type}</span>
+              <div className="note-actions">
+                {!note.isRead && (
+                  <button
+                    onClick={() => handleMarkAsRead(note.id)}
+                    className="mark-read-btn"
+                  >
+                    Mark as Read
+                  </button>
+                )}
+                <span className={`pill ${note.type}`}>{note.type === "user" ? "Client" : note.type}</span>
+              </div>
             </div>
           ))}
         </div>

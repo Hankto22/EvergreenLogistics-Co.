@@ -1,5 +1,3 @@
-"use client";
-
 import HeroSlider from "../components/hero/HeroSlider";
 import WhyChooseUs from "../components/WhyChooseUs";
 import images from "../lib/images";

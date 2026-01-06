@@ -1,52 +1,69 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Package, CheckCircle2, Clock, AlertTriangle, UploadCloud, CheckSquare, User, Edit, Save, X, Shield, Camera, Bell, ChevronDown, Search, Mail, Phone, MapPin } from "lucide-react";
+import { Package, CheckCircle2, Clock, AlertTriangle, UploadCloud, CheckSquare, User, Edit, Save, X, Shield, Camera, Bell, ChevronDown, Search, Mail, Phone, MapPin, Truck } from "lucide-react";
 import type { RootState } from "@/store";
+import { useGetAllowedNextStatusesQuery, useCreateTrackingEventMutation, useGetStaffDashboardQuery, useGetShipmentsQuery, useGetNotificationsQuery, useGetUserUploadsQuery, useUploadMediaMutation } from "../../../store/shipmentApi";
 
 type Priority = "All" | "High" | "Medium" | "Low";
 type TabKey = "profile" | "tasks" | "shipments" | "uploads";
 
-const stats = [
-  { label: "Assigned Shipments", value: "28", tone: "indigo", icon: <Package size={20} /> },
-  { label: "Completed Today", value: "12", tone: "mint", icon: <CheckCircle2 size={20} /> },
-  { label: "Pending", value: "8", tone: "amber", icon: <Clock size={20} /> },
-  { label: "Urgent", value: "3", tone: "rose", icon: <AlertTriangle size={20} /> }
-];
-
-const tasks = [
-  { title: "Process customs clearance for SH-001", shipment: "SH-001", priority: "High" },
-  { title: "Update delivery status for SH-003", shipment: "SH-003", priority: "Medium" },
-  { title: "Contact customer for documentation", shipment: "SH-005", priority: "High" },
-  { title: "Arrange warehouse pickup", shipment: "SH-007", priority: "Low" }
-];
-
-const shipments = [
-  { id: "SH-001", customer: "ABC Trading Ltd", origin: "Guangzhou", destination: "Nairobi", status: "Customs", progress: 75 },
-  { id: "SH-003", customer: "Global Logistics", origin: "Beijing", destination: "Nairobi", status: "In Transit", progress: 45 },
-  { id: "SH-005", customer: "Kenya Imports", origin: "Shanghai", destination: "Mombasa", status: "Processing", progress: 20 }
-];
-
-const uploads = [
-  { title: "Proof of Delivery - SH-001", type: "PDF", status: "Awaiting Review" },
-  { title: "Invoice - SH-003", type: "PDF", status: "Uploaded" },
-  { title: "Customs Docs - SH-005", type: "ZIP", status: "Pending" }
-];
-
-const navLinks = ["About Us", "Solutions", "Cargo Tracking", "Corporate Sustainability", "Contact"];
-
-const staffNotifications = [
-  { title: "Shipment #12345 has arrived in Nairobi", time: "2 hours ago" },
-  { title: "New order from Mombasa warehouse", time: "5 hours ago" },
-  { title: "Customs clearance completed", time: "1 day ago" }
-];
-
 export default function StaffDashboard() {
   const user = useSelector((state: RootState) => state.auth.user);
   const navigate = useNavigate();
+
+  const { data: dashboardStats } = useGetStaffDashboardQuery();
+  const { data: shipmentsData } = useGetShipmentsQuery({});
+  const { data: notificationsData } = useGetNotificationsQuery();
+  const { data: uploadsData } = useGetUserUploadsQuery();
+
+  const stats = dashboardStats ? [
+    { label: "Assigned Shipments", value: dashboardStats.assignedShipments.toString(), tone: "indigo", icon: <Package size={20} /> },
+    { label: "Completed Today", value: dashboardStats.completedToday.toString(), tone: "mint", icon: <CheckCircle2 size={20} /> },
+    { label: "Pending", value: dashboardStats.pendingTasks.toString(), tone: "amber", icon: <Clock size={20} /> },
+    { label: "Urgent", value: dashboardStats.urgentTasks.toString(), tone: "rose", icon: <AlertTriangle size={20} /> }
+  ] : [
+    { label: "Assigned Shipments", value: "0", tone: "indigo", icon: <Package size={20} /> },
+    { label: "Completed Today", value: "0", tone: "mint", icon: <CheckCircle2 size={20} /> },
+    { label: "Pending", value: "0", tone: "amber", icon: <Clock size={20} /> },
+    { label: "Urgent", value: "0", tone: "rose", icon: <AlertTriangle size={20} /> }
+  ];
+
+  const tasks = shipmentsData ? shipmentsData.slice(0, 4).map(shipment => ({
+    title: `Process ${shipment.Status.toLowerCase()} for ${shipment.EVGCode}`,
+    shipment: shipment.EVGCode,
+    priority: shipment.ProgressPercent < 25 ? "High" : shipment.ProgressPercent < 75 ? "Medium" : "Low"
+  })) : [];
+
+  const shipments = shipmentsData ? shipmentsData.map(shipment => ({
+    id: shipment.Id,
+    evgCode: shipment.EVGCode,
+    customer: shipment.client?.fullName || "Unknown Client",
+    origin: shipment.OriginCity ? `${shipment.OriginCity}, ${shipment.OriginCountry}` : "Unknown",
+    destination: shipment.DestinationCity ? `${shipment.DestinationCity}, ${shipment.DestinationCountry}` : "Unknown",
+    status: shipment.Status,
+    progress: shipment.ProgressPercent,
+    containers: shipment.containers?.map(c => ({
+      id: c.containerNumber, // Use containerNumber as id for now
+      containerNumber: c.containerNumber,
+      status: c.status
+    })) || []
+  })) : [];
+
+  const uploads = uploadsData ? uploadsData.slice(0, 3).map(upload => ({
+    title: `Upload from ${new Date(upload.createdAt).toLocaleDateString()}`,
+    type: upload.mediaType?.toUpperCase() || "FILE",
+    status: "Uploaded"
+  })) : [];
+
+  const staffNotifications = notificationsData ? notificationsData.slice(0, 3).map(notification => ({
+    title: notification.message || "Notification",
+    time: new Date(notification.createdAt).toLocaleString()
+  })) : [];
+
   const [tab, setTab] = useState<TabKey>("profile");
   const [priority, setPriority] = useState<Priority>("All");
   const [isEditing, setIsEditing] = useState(false);
@@ -56,7 +73,7 @@ export default function StaffDashboard() {
   const [activeNotification, setActiveNotification] = useState<typeof staffNotifications[number] | null>(null);
   const [profile, setProfile] = useState({
     name: "Jane Staff",
-    email: user?.email || "staff@evergreen.com",
+    email: user?.email || "staff@evergreenlogistics.co.ke",
     phone: "+254 700 000 001",
     department: "Operations"
   });
@@ -68,10 +85,90 @@ export default function StaffDashboard() {
   });
   const [securityMessage, setSecurityMessage] = useState("");
 
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [selectedContainer, setSelectedContainer] = useState<{ id: string; containerNumber: string; shipmentEvgCode: string } | null>(null);
+  const [updateForm, setUpdateForm] = useState({
+    status: "",
+    location: "",
+    notesCustomer: "",
+    notesInternal: "",
+    notifyCustomer: true,
+    eventTime: ""
+  });
+  const [updateMessage, setUpdateMessage] = useState("");
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [uploadMedia, { isLoading: uploadingFile }] = useUploadMediaMutation();
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+
   const filteredTasks = useMemo(
     () => tasks.filter(t => priority === "All" || t.priority === priority),
-    [priority]
+    [priority, tasks]
   );
+
+  const { data: allowedStatuses, isLoading: loadingStatuses } = useGetAllowedNextStatusesQuery(
+    selectedContainer?.id || "",
+    { skip: !selectedContainer?.id }
+  );
+  const [createTrackingEvent, { isLoading: updatingStatus }] = useCreateTrackingEventMutation();
+
+  // Container update handlers
+  const handleOpenUpdateModal = (containerId: string, containerNumber: string, shipmentEvgCode: string) => {
+    setSelectedContainer({ id: containerId, containerNumber, shipmentEvgCode });
+    setUpdateForm({
+      status: "",
+      location: "",
+      notesCustomer: "",
+      notesInternal: "",
+      notifyCustomer: true,
+      eventTime: new Date().toISOString().slice(0, 16)
+    });
+    setUpdateMessage("");
+    setShowUpdateModal(true);
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!selectedContainer || !updateForm.status) return;
+
+    try {
+      await createTrackingEvent({
+        containerId: selectedContainer.id,
+        data: {
+          status: updateForm.status,
+          eventTime: updateForm.eventTime || new Date().toISOString(),
+          location: updateForm.location,
+          notesCustomer: updateForm.notesCustomer,
+          notesInternal: updateForm.notesInternal,
+          notifyCustomer: updateForm.notifyCustomer
+        }
+      }).unwrap();
+
+      setUpdateMessage("Container status updated successfully!");
+      setTimeout(() => {
+        setShowUpdateModal(false);
+        setSelectedContainer(null);
+      }, 2000);
+    } catch (error: any) {
+      setUpdateMessage(error?.data?.message || "Failed to update container status");
+    }
+  };
+
+  const handleStaffUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const mediaType = file.type.startsWith("image")
+      ? "image"
+      : file.type.startsWith("video")
+        ? "video"
+        : "document";
+    try {
+      await uploadMedia({ file, mediaType }).unwrap();
+      setUploadMessage("File uploaded successfully");
+    } catch (error: any) {
+      setUploadMessage(error?.data?.message || "Failed to upload file");
+    } finally {
+      e.target.value = "";
+    }
+  };
 
   return (
     <div className="staff-page">
@@ -84,14 +181,7 @@ export default function StaffDashboard() {
               <div className="brand-sub">Co. Ltd</div>
             </div>
           </div>
-          <nav className="topbar-nav">
-            {navLinks.map(link => (
-              <button key={link} className="top-link" onClick={() => navigate(`/${link.toLowerCase().replace(/ /g, "")}`)}>
-                {link}
-              </button>
-            ))}
-          </nav>
-          <div className="topbar-actions">
+          <div className="topbar-actions compact">
             <button className="icon-chip" aria-label="Search">
               <Search size={18} />
             </button>
@@ -467,7 +557,7 @@ export default function StaffDashboard() {
                   </div>
                   <div className="task-actions">
                     <span className={`pill ${task.priority.toLowerCase()}`}>{task.priority}</span>
-                    <button className="primary-chip" onClick={() => alert(`Update task: ${task.title}`)}>Update</button>
+                    <button className="primary-chip" onClick={() => navigate(`/admin/shipments/${task.shipment}`)}>View Shipment</button>
                   </div>
                 </div>
               ))}
@@ -481,7 +571,7 @@ export default function StaffDashboard() {
               <div key={ship.id} className="staff-shipment-card">
                 <div className="shipment-top">
                   <div>
-                    <div className="shipment-id">{ship.id}</div>
+                    <div className="shipment-id">{ship.evgCode}</div>
                     <div className="shipment-title">{ship.customer}</div>
                     <div className="shipment-sub">
                       Origin <strong>{ship.origin}</strong> • Destination <strong>{ship.destination}</strong>
@@ -497,9 +587,30 @@ export default function StaffDashboard() {
                   </div>
                 </div>
 
+                {/* Containers */}
+                <div className="shipment-containers">
+                  <h5>Containers</h5>
+                  {ship.containers.map(container => (
+                    <div key={container.id} className="container-row">
+                      <div className="container-info">
+                        <Package size={14} />
+                        <span>{container.containerNumber}</span>
+                        <span className={`status-badge ${container.status.toLowerCase()}`}>
+                          {container.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <button
+                        className="update-btn"
+                        onClick={() => handleOpenUpdateModal(container.id, container.containerNumber, ship.evgCode)}
+                      >
+                        Update
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
                 <div className="shipment-actions">
-                  <button className="primary-btn" onClick={() => alert(`Update status for ${ship.id}`)}>Update Status</button>
-                  <button className="ghost-btn" onClick={() => alert(`View details for ${ship.id}`)}>View Details</button>
+                  <button className="ghost-btn" onClick={() => navigate(`/admin/shipments/${ship.id}`)}>View Details</button>
                 </div>
               </div>
             ))}
@@ -510,7 +621,7 @@ export default function StaffDashboard() {
           <div className="panel upload-panel">
             <h3>Upload Documents</h3>
             <div className="upload-list">
-              {uploads.map(file => (
+              {uploads.map((file: typeof uploads[number]) => (
                 <div key={file.title} className="upload-row">
                   <div>
                     <div className="upload-title">{file.title}</div>
@@ -520,10 +631,139 @@ export default function StaffDashboard() {
                 </div>
               ))}
             </div>
-            <button className="primary-btn" onClick={() => alert("Upload new file functionality not implemented")}>
+            <input
+              type="file"
+              ref={uploadInputRef}
+              className="hidden"
+              onChange={handleStaffUpload}
+            />
+            <button className="primary-btn" disabled={uploadingFile} onClick={() => uploadInputRef.current?.click()}>
               <UploadCloud size={18} />
-              Upload New File
+              {uploadingFile ? "Uploading..." : "Upload New File"}
             </button>
+            {uploadMessage && <p className="mt-3 text-sm text-green-700">{uploadMessage}</p>}
+          </div>
+        )}
+
+        {/* Container Update Modal */}
+        {showUpdateModal && selectedContainer && (
+          <div className="modal-overlay" onClick={() => setShowUpdateModal(false)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Update Container Status</h3>
+                <button className="modal-close" onClick={() => setShowUpdateModal(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="modal-body">
+                <div className="container-info-display">
+                  <div className="info-row">
+                    <Package size={16} />
+                    <span>Container: {selectedContainer.containerNumber}</span>
+                  </div>
+                  <div className="info-row">
+                    <Truck size={16} />
+                    <span>Shipment: {selectedContainer.shipmentEvgCode}</span>
+                  </div>
+                </div>
+
+                <form className="update-form">
+                  <div className="form-group">
+                    <label>New Status *</label>
+                    {loadingStatuses ? (
+                      <div className="loading-spinner">Loading allowed statuses...</div>
+                    ) : (
+                      <select
+                        value={updateForm.status}
+                        onChange={(e) => setUpdateForm({ ...updateForm, status: e.target.value })}
+                        required
+                      >
+                        <option value="">Select status</option>
+                        {allowedStatuses?.map(status => (
+                          <option key={status} value={status}>
+                            {status.replace(/_/g, ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Event Time</label>
+                    <input
+                      type="datetime-local"
+                      value={updateForm.eventTime}
+                      onChange={(e) => setUpdateForm({ ...updateForm, eventTime: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Location</label>
+                    <input
+                      type="text"
+                      value={updateForm.location}
+                      onChange={(e) => setUpdateForm({ ...updateForm, location: e.target.value })}
+                      placeholder="e.g., Port of Mombasa"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Customer Notes</label>
+                    <textarea
+                      value={updateForm.notesCustomer}
+                      onChange={(e) => setUpdateForm({ ...updateForm, notesCustomer: e.target.value })}
+                      placeholder="Notes visible to customer"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Internal Notes</label>
+                    <textarea
+                      value={updateForm.notesInternal}
+                      onChange={(e) => setUpdateForm({ ...updateForm, notesInternal: e.target.value })}
+                      placeholder="Internal staff notes"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div className="form-group checkbox">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={updateForm.notifyCustomer}
+                        onChange={(e) => setUpdateForm({ ...updateForm, notifyCustomer: e.target.checked })}
+                      />
+                      <span>Notify customer via email</span>
+                    </label>
+                  </div>
+
+                  {updateMessage && (
+                    <div className={`message ${updateMessage.includes('success') ? 'success' : 'error'}`}>
+                      {updateMessage}
+                    </div>
+                  )}
+                </form>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  className="btn-secondary"
+                  onClick={() => setShowUpdateModal(false)}
+                  disabled={updatingStatus}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={handleUpdateStatus}
+                  disabled={updatingStatus || !updateForm.status}
+                >
+                  {updatingStatus ? 'Updating...' : 'Update Status'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

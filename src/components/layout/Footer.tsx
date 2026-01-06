@@ -42,18 +42,18 @@ const Footer = () => {
 
         <div>
           <h4>Contact Us</h4>
-          <p>Nairobi, Kenya</p>
-          <p>Warehouse: Guangzhou, China</p>
-          <p>+254 700 000 000</p>
-          <p>info@evergreenlogistics.co.ke</p>
-          <div className="compatibility-badge">
-            Compatible with iOS · Android · Snapdragon & all major devices
-          </div>
+          <p>Nairobi Office: Mombasa Rd, Industrial Area</p>
+          <p>Tel: +254 728 969 582/3</p>
+          <p>Francis Mwangi: +254 722 837173</p>
+          <p>Yiwu Warehouse: Dongyuan Industrial Area, Dongxin Rd 19, Bldg 1 East 1F</p>
+          <p>Contacts: +86 152 5895 2601 / +86 158 2579 4496</p>
+          <p>Email: contact@evergreenlogistics.co.ke</p>
+          <div className="compatibility-badge">Fast and reliable service</div>
         </div>
       </div>
 
       <div className="footer-bottom">
-        © {new Date().getFullYear()} Evergreen Logistics Co Ltd. All rights reserved.
+        (c) {new Date().getFullYear()} Evergreen Logistics Co. Ltd. All rights reserved.
       </div>
     </footer>
   );

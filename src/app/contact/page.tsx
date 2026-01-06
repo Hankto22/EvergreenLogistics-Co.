@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import whatsappCard from "../../assets/WhatsApp Image 2025-12-05 at 12.15.50 PM.jpeg";
+import { MapPin, Phone, Mail, Building2, Clock, PhoneCall } from "lucide-react";
+import whatsappCardPrimary from "../../assets/WhatsApp Image 2025-12-05 at 12.15.50 PM.jpeg";
+import whatsappCardYiwu from "../../assets/WhatsApp Image 2025-12-05 at 12.17.15 PM.jpeg";
 
 export default function ContactPage() {
   const [form, setForm] = useState({
@@ -17,24 +19,48 @@ export default function ContactPage() {
 
   const contacts = [
     {
-      title: "Kenya Office",
-      icon: "📍",
-      lines: ["Nairobi, Kenya", "Mombasa Road, Industrial Area"]
+      title: "Nairobi Office",
+      icon: <MapPin size={18} />,
+      lines: [
+        "Mombasa Road, Industrial Area, Nairobi",
+        "Tel: +254 728 969 582/3",
+        "Francis Mwangi: +254 722 837173",
+        "Email: contact@evergreenlogistics.co.ke"
+      ]
     },
     {
-      title: "China Office",
-      icon: "📍",
-      lines: ["Guangzhou, China", "Baiyun District"]
+      title: "Yiwu Office",
+      icon: <Phone size={18} />,
+      lines: [
+        "Dongyuan Industrial Area, Dongxin Rd 19, Bldg 1 East 1F",
+        "David: +86 138 6896 8373",
+        "Maina: +86 150 2439 6939",
+        "Douglas: +86 184 5796 7945",
+        "Kenya Line: +254 792 740 054"
+      ]
     },
     {
-      title: "Phone",
-      icon: "📞",
-      lines: ["Kenya: +254 700 000 000", "China: +86 20 0000 0000"]
+      title: "Yiwu Warehouse",
+      icon: <Building2 size={18} />,
+      lines: [
+        "Address: Dongyuan Industrial Area, Dongxin Rd 19, Bldg 1 East 1F",
+        "Contacts: +86 152 5895 2601 / +86 158 2579 4496"
+      ]
+    },
+    {
+      title: "Guangzhou Warehouse",
+      icon: <PhoneCall size={18} />,
+      lines: [
+        "Foshan DHL Logistics Center D4-92, Nanhai District",
+        "Carol: +86 132 4234 8984",
+        "Allan: +86 195 7520 1336",
+        "Contacts: 132 4757 8253 / 1957 521 0336"
+      ]
     },
     {
       title: "Email",
-      icon: "✉️",
-      lines: ["info@evergreenlogistics.com", "support@evergreenlogistics.com"]
+      icon: <Mail size={18} />,
+      lines: ["contact@evergreenlogistics.co.ke"]
     }
   ];
 
@@ -44,7 +70,10 @@ export default function ContactPage() {
     setTimeout(() => setSent(false), 3500);
   };
 
-  const fade = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
+  const fade = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4 } }
+  };
 
   return (
     <>
@@ -124,7 +153,9 @@ export default function ContactPage() {
 
       <section className="business-hours">
         <div className="content-shell hours-card">
-          <div className="info-icon" style={{ background: "rgba(255,255,255,0.14)", color: "#fff" }}>⏰</div>
+          <div className="info-icon" style={{ background: "rgba(255,255,255,0.14)", color: "#fff" }}>
+            <Clock size={18} />
+          </div>
           <div>
             <h3>Business Hours</h3>
             <p>Monday - Friday: 8:00 AM - 6:00 PM</p>
@@ -152,8 +183,9 @@ export default function ContactPage() {
             </div>
           </div>
 
-          <div className="whatsapp-card">
-            <img src={whatsappCard} alt="WhatsApp contact card" loading="lazy" />
+          <div className="whatsapp-card" style={{ display: "grid", gap: 12 }}>
+            <img src={whatsappCardPrimary} alt="WhatsApp contact card for Nairobi warehouse" loading="lazy" />
+            <img src={whatsappCardYiwu} alt="WhatsApp contact card for Yiwu and Guangzhou offices" loading="lazy" />
           </div>
         </div>
       </section>

@@ -29,7 +29,7 @@ export default function AboutPage() {
       <div className="about-heading" style={{ backgroundImage: `url(${frostImg})` }}>
         <div className="about-heading-inner">
           <p className="hero-kicker">Who We Are</p>
-          <h1 className="about-heading-title">Evergreen Logistics Co Ltd</h1>
+          <h1 className="about-heading-title">Evergreen Logistics Co. Ltd</h1>
           <p className="about-heading-sub">Connecting Kenya and China with reliable shipping, warehousing, and logistics solutions.</p>
         </div>
       </div>
@@ -38,7 +38,7 @@ export default function AboutPage() {
         <div className="split-section about-split">
           <div className="split-copy-col">
             <p className="hero-kicker">Who We Are</p>
-            <h2 className="split-title">Evergreen Logistics Co Ltd</h2>
+            <h2 className="split-title">Evergreen Logistics Co. Ltd</h2>
             <p className="split-copy">
               A leading international freight forwarding company specializing in cargo transportation between Kenya and China.
               With headquarters in Nairobi and strategic warehouses in Guangzhou, we provide end-to-end logistics solutions.
